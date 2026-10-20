@@ -1,0 +1,26 @@
+{
+  "name": "dsh-h5-adapter",
+  "version": "0.3.0",
+  "description": "H5 shell adapter: narrow-viewport (<=1023px) layout overrides for the DSH web shell plus touch-first interaction fixes — header corner pinned right, account/row menus above the drawer, always-visible session row actions, and a history-backed back gesture for the drawer and dialogs. Desktop is unaffected (all rules live in @media).",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ]
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js"
+  ]
+}

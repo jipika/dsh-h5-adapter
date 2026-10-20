@@ -1,0 +1,220 @@
+// dsh-h5-adapter — browser half.
+//
+// H5 壳适配：只做壳布局 + 全局兜底，不改各插件源码。
+// 所有覆盖都在 @media(max-width:768px) / (max-width:640px) 内，桌面端不受影响。
+window.__ModuleLoader__.load({
+  id: "dsh-h5-adapter",
+  factory: (require) => {
+    var module = { exports: {} };
+    var exports = module.exports;
+    Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+
+    var STYLE_ID = "dsh-h5-adapter-style";
+    var MORE_BTN_CLASS = "dsh-h5-adapter-more";
+    var POPOVER_CLASS = "dsh-h5-adapter-popover";
+
+    var CSS = [
+      // —— (1) 侧栏：768px 以下强制 52px 图标轨 —— //
+      "@media (max-width:768px){",
+      "[data-slot='sidebar'],[data-slot='sideBar'],aside[data-slot]{width:52px !important;min-width:52px !important;max-width:52px !important;overflow-x:hidden !important;}",
+      "[data-slot='sidebar'] .dcfe-label,",
+      "[data-slot='sidebar'] .dspfe-entry-label,",
+      "[data-slot='sidebar'] .dsh-context-footer-label,",
+      "[data-slot='sidebar'] [class*='label'],",
+      "[data-slot='sidebar'] [class*='Label'],",
+      "[data-slot='sidebar'] [class*='title'],",
+      "[data-slot='sidebar'] [class*='Title'],",
+      "[data-slot='sidebar'] [class*='meta'],",
+      "[data-slot='sidebar'] [class*='sectionHeader'] span,",
+      "[data-slot='sidebar'] span:not(:has(>svg)):not(:has(+svg)){font-size:0 !important;line-height:0 !important;}",
+      "[data-slot='sidebar'] button,[data-slot='sidebar'] [role='button']{width:44px !important;height:44px !important;min-width:44px !important;min-height:44px !important;padding:0 !important;justify-content:center !important;}",
+      "[data-slot='sidebar'] svg{margin:0 auto !important;flex:none !important;}",
+      "[data-slot='main'],[data-slot='content'],main{margin-left:52px !important;margin-right:0 !important;}",
+      "}",
+
+      // —— (2) 顶栏：对话/轨迹/产物/上下文/编队横向可滑 —— //
+      "@media (max-width:768px){",
+      "[data-slot='topBar'],[data-slot='tabs'],[data-slot='conversation-tabs'],header [role='tablist']{display:flex !important;flex-wrap:nowrap !important;gap:12px !important;overflow-x:auto !important;overflow-y:hidden !important;scrollbar-width:none !important;-webkit-overflow-scrolling:touch !important;}",
+      "[data-slot='topBar']::-webkit-scrollbar,[data-slot='tabs']::-webkit-scrollbar,[data-slot='conversation-tabs']::-webkit-scrollbar{ display:none !important;}",
+      "[data-slot='topBar'] > *,[data-slot='tabs'] > *{flex:none !important;}",
+      "}",
+      // ComfyUI 面板在 640px 下只留图标 //
+      "@media (max-width:640px){",
+      "[data-slot='comfyui-panel'] :not(svg):not(button){ }",
+      "[data-slot='comfyui-panel'] button span,[data-slot='comfyui-panel'] .label,[data-slot='comfyui-panel'] [class*='label']{display:none !important;}",
+      "[data-slot='comfyui-panel'] button{width:44px !important;height:44px !important;min-width:44px !important;padding:0 !important;justify-content:center !important;}",
+      "}",
+
+      // —— (3) composer：真实选择器是 [data-composer-seat]/[data-composer-card]/[data-composer-dock] —— //
+      // 取证：InputBar.tsx:398 data-composer-card / :520 data-composer-dock，ConversationContent.tsx:184 data-composer-seat //
+      // 之前用的 [data-slot='composer'] 在真实 DOM 里不存在，所以手机上一条都没命中 //
+      "@media (max-width:768px){",
+      "[data-composer-seat]{padding-left:8px !important;padding-right:8px !important;}",
+      "[data-composer-card]{gap:8px !important;border-radius:18px !important;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px)) !important;}",
+      // iOS 输入框小于 16px 会自动缩放，必须落在元素本身（data-composer-input + textarea + contenteditable）//
+      "[data-composer-card] [data-composer-input],[data-composer-card] textarea,[data-composer-card] [contenteditable='true']{font-size:16px !important;line-height:24px !important;}",
+      "[data-composer-card] button{border-radius:10px !important;}",
+      "}",
+      // 640px 以下（≥769px 不受影响）：模型下拉截断 + 状态条单行可滑（对应截图第二排挤爆问题）//
+      "@media (max-width:640px){",
+      // 模型选择 max-width 220px -> 120px，剩下的空间还给发送键；文字 ellipsis 本来就有 //
+      "[data-composer-card] select{max-width:120px !important;overflow:hidden !important;text-overflow:ellipsis !important;}",
+      "[data-composer-card] > div{gap:8px !important;}",
+      // 状态条（222 tok/s · 缓存命中 97% · 18%）：手机上单行可滑，不换行不撑宽，不 display:none //
+      "[data-composer-dock]{max-width:100% !important;overflow-x:auto !important;overflow-y:hidden !important;white-space:nowrap !important;scrollbar-width:none !important;font-size:11px !important;gap:8px !important;padding-top:2px !important;}",
+      "[data-composer-dock]::-webkit-scrollbar{display:none !important;}",
+      "[data-composer-dock] > *{flex:none !important;}",
+      "}",
+      // 380px 以下超窄屏：只收模型下拉宽度，dock 保持可滑可见（dock 内有功能入口，不隐藏）//
+      "@media (max-width:380px){",
+      "[data-composer-card] select{max-width:96px !important;}",
+      "}",
+      // 溢出收纳：··· 按钮与 popover（仅移动端显示，由 JS 按数量开关；≥769px 不受影响）//
+      "@media (max-width:768px){",
+      "." + MORE_BTN_CLASS + "{display:none;width:44px;height:44px;min-width:44px;border-radius:8px;align-items:center;justify-content:center;}",
+      "." + MORE_BTN_CLASS + "[data-open='1']{display:inline-flex !important;}",
+      "." + POPOVER_CLASS + "{position:fixed;z-index:60;display:none;flex-wrap:wrap;gap:8px;max-width:min(320px,calc(100vw - 32px));padding:8px;border-radius:12px;background:var(--dsw-alias-bg-base);box-shadow:var(--dsw-elevation-prominent);}",
+      "." + POPOVER_CLASS + "[data-open='1']{display:flex;}",
+      "." + POPOVER_CLASS + " button{min-height:44px !important;}",
+      "}",
+
+      // —— (4) dialog / panel 沉底 bottom-sheet —— //
+      "@media (max-width:640px){",
+      "[role='dialog'],.dcs-detail,.wbsum-panel{position:fixed !important;inset:auto 0 0 0 !important;top:auto !important;left:0 !important;right:0 !important;bottom:0 !important;width:100% !important;max-width:100% !important;max-height:min(560px,72dvh) !important;border-radius:16px 16px 0 0 !important;overflow:auto !important;overscroll-behavior:contain !important;padding-bottom:env(safe-area-inset-bottom,0px) !important;}",
+      "[role='dialog'] button,.dcs-detail button,.wbsum-panel button{min-height:44px !important;}",
+      "}"
+    ].join("\n");
+
+    function ensureStyle() {
+      var style = document.getElementById(STYLE_ID);
+      if (style === null) {
+        style = document.createElement("style");
+        style.id = STYLE_ID;
+        document.head.appendChild(style);
+      }
+      if (style.textContent !== CSS) style.textContent = CSS;
+    }
+
+    // 视口感知上限（参考 dsh-todo-float lib/client.js:232 innerWidth 逻辑）：
+    // 可用宽 = innerWidth - 两侧呼吸位，钳制在允许范围内。
+    function maxWidthNow(min, max, gutter) {
+      try {
+        var w = window.innerWidth - gutter;
+        return Math.max(min, Math.min(max, w));
+      } catch (e) {
+        return max;
+      }
+    }
+
+    // composer 溢出收纳：超 4 个按钮时，多余的移入 ··· popover。
+    var ro = null;
+    function collectComposer() {
+      var bars;
+      try {
+        bars = document.querySelectorAll(
+          "[data-slot='composer'] [data-slot='toolbar'],[data-slot='composer'] [role='toolbar'],[data-slot='input'] [role='toolbar']"
+        );
+      } catch (e) {
+        return;
+      }
+      bars.forEach(function (bar) {
+        // 只在移动端断点下工作，桌面端把搬走的按钮还回去。
+        var mobile;
+        try {
+          mobile = window.matchMedia("(max-width:768px)").matches;
+        } catch (e) {
+          mobile = window.innerWidth <= 768;
+        }
+        var pop = bar.parentElement
+          ? bar.parentElement.querySelector(":scope > ." + POPOVER_CLASS)
+          : null;
+        if (!mobile) {
+          if (pop && pop.getAttribute("data-open") === "1") {
+            while (pop.firstChild) bar.appendChild(pop.firstChild);
+            pop.removeAttribute("data-open");
+          }
+          var oldMore = bar.querySelector(":scope > ." + MORE_BTN_CLASS);
+          if (oldMore) oldMore.removeAttribute("data-open");
+          return;
+        }
+        var btns = Array.prototype.slice.call(bar.querySelectorAll(":scope > button"));
+        if (btns.length <= 4) {
+          if (pop) {
+            while (pop.firstChild) bar.appendChild(pop.firstChild);
+            pop.remove();
+          }
+          var m0 = bar.querySelector(":scope > ." + MORE_BTN_CLASS);
+          if (m0) m0.remove();
+          return;
+        }
+        var more = bar.querySelector(":scope > ." + MORE_BTN_CLASS);
+        if (!more) {
+          more = document.createElement("button");
+          more.className = MORE_BTN_CLASS;
+          more.type = "button";
+          more.textContent = "···";
+          more.setAttribute("aria-label", "更多");
+          more.addEventListener("click", function () {
+            var p = bar.parentElement.querySelector(":scope > ." + POPOVER_CLASS);
+            if (!p) return;
+            var open = p.getAttribute("data-open") === "1";
+            if (open) p.removeAttribute("data-open");
+            else {
+              p.setAttribute("data-open", "1");
+              // popover 宽度跟随视口（innerWidth - 32 呼吸位）。
+              p.style.maxWidth = maxWidthNow(200, 320, 32) + "px";
+            }
+          });
+          bar.appendChild(more);
+        }
+        if (!pop) {
+          pop = document.createElement("div");
+          pop.className = POPOVER_CLASS;
+          bar.parentElement.appendChild(pop);
+        }
+        more.setAttribute("data-open", "1");
+        // 第 5 个起（含）全部搬进 popover。
+        btns.slice(4).forEach(function (b) {
+          pop.appendChild(b);
+        });
+      });
+    }
+
+    function observe() {
+      collectComposer();
+      if (typeof ResizeObserver === "undefined") {
+        window.addEventListener("resize", collectComposer);
+        return;
+      }
+      if (ro) ro.disconnect();
+      ro = new ResizeObserver(function () {
+        collectComposer();
+      });
+      ro.observe(document.documentElement);
+      try {
+        var composer = document.querySelector("[data-slot='composer'],[data-slot='input']");
+        if (composer) ro.observe(composer);
+      } catch (e) {}
+    }
+
+    function applyModeAttribute() {
+      try {
+        document.documentElement.setAttribute("data-h5-adapter", "on");
+      } catch (e) {}
+    }
+
+    exports.name = "dsh-h5-adapter";
+    exports.inject = [];
+    exports.apply = function () {
+      ensureStyle();
+      applyModeAttribute();
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", observe, { once: true });
+      } else {
+        observe();
+      }
+      console.log("[dsh-h5-adapter] client half mounted");
+    };
+    return module.exports;
+  }
+});
