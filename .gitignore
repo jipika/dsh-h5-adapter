@@ -3,3 +3,8 @@ node_modules/
 .DS_Store
 *.tgz
 .backups/
+
+# 本地备份：改动前的 client.js 快照，不进仓库
+.bak/
+*.bak
+*.bak-*
