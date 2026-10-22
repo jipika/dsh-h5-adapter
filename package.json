@@ -1,7 +1,7 @@
 {
   "name": "dsh-h5-adapter",
-  "version": "0.3.0",
-  "description": "H5 shell adapter: narrow-viewport (<=1023px) layout overrides for the DSH web shell plus touch-first interaction fixes — header corner pinned right, account/row menus above the drawer, always-visible session row actions, and a history-backed back gesture for the drawer and dialogs. Desktop is unaffected (all rules live in @media).",
+  "version": "0.11.18",
+  "description": "H5 shell adapter (<=1023px): single-pill composer with all native controls kept tappable, simplified top bar, slide-in drawer with scrim, edge-swipe open/close, back stack for drawer/dialogs and session history. Desktop untouched.",
   "license": "MIT",
   "type": "module",
   "main": "./lib/index.js",
